@@ -1,0 +1,75 @@
+---
+- name: Create Dynamic ConfigMap
+  k8s:
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: "temporal-dynamic-config"
+        namespace: "{{ ansible_operator_meta.namespace }}"
+        labels:
+          app.kubernetes.io/name: "{{ instance_name }}"
+          app.kubernetes.io/instance: "{{ instance_name }}"
+          app.kubernetes.io/version: "1.17.5"
+          app.kubernetes.io/part-of: "{{ instance_name }}"
+      data:
+        dynamic_config.yaml: |
+- name: Deploy Temporal DB Secret
+  k8s:
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: temporal-db-password
+        namespace: "{{ ansible_operator_meta.namespace }}"
+      stringData:
+        password: "{{ temporal_db_password }}"
+- name: Deploy Temporal Default Secret
+  k8s:
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: temporal-default-store
+        namespace: "{{ ansible_operator_meta.namespace }}"
+      stringData:
+        password: "{{ temporal_db_password }}"
+- name: Deploy Temporal Visibility Secret
+  k8s:
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: temporal-visibility-store
+        namespace: "{{ ansible_operator_meta.namespace }}"
+      stringData:
+        password: "{{ temporal_db_password }}"        
+- name: Deploy Admintools
+  include_role:
+    name: admintools
+  when: admintools.enable
+
+- name: Deploy Web
+  include_role:
+    name: web
+  when: web.enable
+
+- name: Deploy Frontend
+  include_role:
+    name: frontend
+  when: frontend.enable
+
+- name: Deploy Matching
+  include_role:
+    name: matching
+  when: matching.enable
+
+- name: Deploy History
+  include_role:
+    name: history
+  when: history.enable
+
+- name: Deploy Worker
+  include_role:
+    name: worker
+  when: worker.enable    

@@ -1,0 +1,303 @@
+---
+- name: Create Frontend ConfigMap
+  k8s:
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: "temporal-frontend-config"
+        namespace: "{{ ansible_operator_meta.namespace }}"
+        labels:
+          app.kubernetes.io/name: "{{ instance_name }}"
+          app.kubernetes.io/instance: "{{ instance_name }}"
+          app.kubernetes.io/version: "1.17.5"
+          app.kubernetes.io/part-of: "{{ instance_name }}"
+      data:
+        config_template.yaml: |
+          log:
+            stdout: true
+            level: "debug,info"
+
+          persistence:
+            defaultStore: default
+            visibilityStore: visibility
+            numHistoryShards: {{ num_shards }}
+            datastores:
+              default:
+                sql:
+                  pluginName: "{{ plugin_name }}"
+                  driverName: "{{ driver_name }}"
+                  databaseName: "temporal"
+                  connectAddr: "{{ db_conn_addr }}"
+                  connectProtocol: "tcp"
+                  user: {{ db_user }}
+                  password: "{% raw %}{{ .Env.TEMPORAL_STORE_PASSWORD }}{% endraw %}"
+                  maxConnLifetime: 1h
+                  maxConns: 20
+                  secretName: ""
+              visibility:
+                sql:
+                  pluginName: "{{ plugin_name }}"
+                  driverName: "{{ driver_name }}"
+                  databaseName: "temporal_visibility"
+                  connectAddr: "{{ db_conn_addr }}"
+                  connectProtocol: "tcp"
+                  user: "{{ db_user }}"
+                  password: "{% raw %}{{ .Env.TEMPORAL_VISIBILITY_STORE_PASSWORD }}{% endraw %}"
+                  maxConnLifetime: 1h
+                  maxConns: 20
+                  secretName: ""
+
+          global:
+            membership:
+              name: temporal
+              maxJoinDuration: 30s
+              broadcastAddress: {% raw %}{{ default .Env.POD_IP "0.0.0.0" }}{% endraw %}
+
+            pprof:
+              port: 7936
+              
+            metrics:
+              tags:
+                type: frontend
+              prometheus:
+                timerType: histogram
+                listenAddress: "0.0.0.0:9090"
+
+          services:
+            frontend:
+              rpc:
+                grpcPort: 7233
+                membershipPort: 6933
+                bindOnIP: "0.0.0.0"
+
+            history:
+              rpc:
+                grpcPort: 7234
+                membershipPort: 6934
+                bindOnIP: "0.0.0.0"
+
+            matching:
+              rpc:
+                grpcPort: 7235
+                membershipPort: 6935
+                bindOnIP: "0.0.0.0"
+
+            worker:
+              rpc:
+                grpcPort: 7239
+                membershipPort: 6939
+                bindOnIP: "0.0.0.0"
+
+          clusterMetadata:
+            enableGlobalDomain: false
+            failoverVersionIncrement: 10
+            masterClusterName: "active"
+            currentClusterName: "active"
+            clusterInformation:
+              active:
+                enabled: true
+                initialFailoverVersion: 1
+                rpcName: "temporal-frontend"
+                rpcAddress: "127.0.0.1:7933"
+
+          dcRedirectionPolicy:
+            policy: "noop"
+            toDC: ""
+
+          archival:
+            status: "disabled"
+
+          publicClient:
+            hostPort: "temporal-frontend:7233"
+
+          dynamicConfigClient:
+            filepath: "/etc/temporal/dynamic_config/dynamic_config.yaml"
+            pollInterval: "10s"
+
+
+# Deployment
+- name: Create Frontend Deployment
+  k8s:
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        labels:
+          app.kubernetes.io/component: frontend
+          app.kubernetes.io/name: "{{ instance_name }}"
+          app.kubernetes.io/instance: "{{ instance_name }}"
+          app.kubernetes.io/version: "1.17.5"
+          app.kubernetes.io/part-of: "{{ instance_name }}"
+        name: temporal-frontend
+        namespace: "{{ ansible_operator_meta.namespace }}"
+      spec:
+        progressDeadlineSeconds: 600
+        replicas: 1
+        revisionHistoryLimit: 10
+        selector:
+          matchLabels:
+            app.kubernetes.io/component: frontend
+            app.kubernetes.io/instance: "{{ instance_name }}"
+            app.kubernetes.io/name: "{{ instance_name }}"
+        strategy:
+          rollingUpdate:
+            maxSurge: 25%
+            maxUnavailable: 25%
+          type: RollingUpdate
+        template:
+          metadata:
+            annotations:
+              checksum/config: 42ee1602fb81e7fe08a5db1220a2f2cb3364e32a3b9db599291f8ef2203dcb55
+              prometheus.io/job: temporal-frontend
+              prometheus.io/port: "9090"
+              prometheus.io/scrape: "true"
+            labels:
+              app.kubernetes.io/component: frontend
+              app.kubernetes.io/name: "{{ instance_name }}"
+              app.kubernetes.io/instance: "{{ instance_name }}"
+              app.kubernetes.io/version: "1.17.5"
+              app.kubernetes.io/part-of: "{{ instance_name }}"
+          spec:
+            containers:
+            - env:
+              - name: POD_IP
+                valueFrom:
+                  fieldRef:
+                    apiVersion: v1
+                    fieldPath: status.podIP
+              - name: ENABLE_ES
+              - name: ES_SEEDS
+                value: elasticsearch-master-headless
+              - name: ES_PORT
+                value: "9200"
+              - name: ES_VERSION
+                value: v7
+              - name: ES_SCHEME
+                value: http
+              - name: ES_VIS_INDEX
+                value: temporal_visibility_v1_dev
+              - name: ES_USER
+              - name: ES_PWD
+              - name: SERVICES
+                value: frontend
+              - name: TEMPORAL_STORE_PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    key: password
+                    name: temporal-default-store
+              - name: TEMPORAL_VISIBILITY_STORE_PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    key: password
+                    name: temporal-visibility-store
+              image: temporalio/server:1.17.5
+              imagePullPolicy: IfNotPresent
+              livenessProbe:
+                failureThreshold: 3
+                initialDelaySeconds: 150
+                periodSeconds: 10
+                successThreshold: 1
+                tcpSocket:
+                  port: rpc
+                timeoutSeconds: 1
+              name: temporal-frontend
+              ports:
+              - containerPort: 7233
+                name: rpc
+                protocol: TCP
+              - containerPort: 9090
+                name: metrics
+                protocol: TCP
+              resources: {}
+              terminationMessagePath: /dev/termination-log
+              terminationMessagePolicy: File
+              volumeMounts:
+              - mountPath: /etc/temporal/config/config_template.yaml
+                name: config
+                subPath: config_template.yaml
+              - mountPath: /etc/temporal/dynamic_config
+                name: dynamic-config
+            dnsPolicy: ClusterFirst
+            restartPolicy: Always
+            schedulerName: default-scheduler
+            securityContext: {}
+            terminationGracePeriodSeconds: 30
+            volumes:
+            - configMap:
+                defaultMode: 420
+                name: temporal-frontend-config
+              name: config
+            - configMap:
+                defaultMode: 420
+                items:
+                - key: dynamic_config.yaml
+                  path: dynamic_config.yaml
+                name: temporal-dynamic-config
+              name: dynamic-config
+
+# Frontend service
+- name: Create Frontend Service
+  k8s:
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        labels:
+              app.kubernetes.io/component: frontend
+              app.kubernetes.io/name: "{{ instance_name }}"
+              app.kubernetes.io/instance: "{{ instance_name }}"
+              app.kubernetes.io/version: "1.17.5"
+              app.kubernetes.io/part-of: "{{ instance_name }}"
+        name: temporal-frontend
+        namespace: "{{ ansible_operator_meta.namespace }}"
+      spec:
+        type: ClusterIP
+        ports:
+          - port: 7233
+            targetPort: rpc
+            protocol: TCP
+            name: grpc-rpc
+        sessionAffinity: None            
+        selector:
+          app.kubernetes.io/name: "{{ instance_name }}"
+          app.kubernetes.io/instance: "{{ instance_name }}"
+          app.kubernetes.io/component: frontend
+      status:
+        loadBalancer: {}
+
+# Frontend Headless service
+- name: Create Frontend Service
+  k8s:
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        labels:
+              app.kubernetes.io/component: frontend
+              app.kubernetes.io/name: "{{ instance_name }}"
+              app.kubernetes.io/instance: "{{ instance_name }}"
+              app.kubernetes.io/version: "1.17.5"
+              app.kubernetes.io/part-of: "{{ instance_name }}"
+        name: temporal-frontend-headless
+        namespace: "{{ ansible_operator_meta.namespace }}"
+      spec:
+        type: ClusterIP
+        ports:
+          - port: 7233
+            targetPort: rpc
+            protocol: TCP
+            name: grpc-rpc
+          - port: 9090
+            targetPort: metrics
+            protocol: TCP
+            name: metrics
+           
+        sessionAffinity: None            
+        selector:
+          app.kubernetes.io/name: "{{ instance_name }}"
+          app.kubernetes.io/instance: "{{ instance_name }}"
+          app.kubernetes.io/component: frontend
+      status:
+        loadBalancer: {}
+

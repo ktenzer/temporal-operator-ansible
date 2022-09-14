@@ -1,0 +1,114 @@
+---
+- name: Create Web ConfigMap
+  k8s:
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: "temporal-web-config"
+        namespace: "{{ ansible_operator_meta.namespace }}"
+        labels:
+          app.kubernetes.io/name: "{{ instance_name }}"
+          app.kubernetes.io/instance: "{{ instance_name }}"
+          app.kubernetes.io/version: "1.17.5"
+          app.kubernetes.io/part-of: "{{ instance_name }}"
+      data:
+        config.yml: |
+          auth:
+            enabled: false
+          routing:
+            default_to_namespace: null
+            issue_report_link: https://github.com/temporalio/web/issues/new/choose
+
+# Deployment
+- name: Create Web ConfigMap
+  k8s:
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        labels:
+          app.kubernetes.io/component: web
+          app.kubernetes.io/name: "{{ instance_name }}"
+          app.kubernetes.io/instance: "{{ instance_name }}"
+          app.kubernetes.io/version: "1.17.5"
+          app.kubernetes.io/part-of: "{{ instance_name }}"
+        name: temporal-web
+        namespace: "{{ ansible_operator_meta.namespace }}"
+      spec:
+        progressDeadlineSeconds: 600
+        replicas: 1
+        revisionHistoryLimit: 10
+        selector:
+          matchLabels:
+            app.kubernetes.io/component: web
+            app.kubernetes.io/instance: "{{ instance_name }}"
+            app.kubernetes.io/name: "{{ instance_name }}"
+        strategy:
+          rollingUpdate:
+            maxSurge: 25%
+            maxUnavailable: 25%
+          type: RollingUpdate
+        template:
+          metadata:
+            creationTimestamp: null
+            labels:
+              app.kubernetes.io/component: web
+              app.kubernetes.io/name: "{{ instance_name }}"
+              app.kubernetes.io/instance: "{{ instance_name }}"
+              app.kubernetes.io/version: "1.17.5"
+              app.kubernetes.io/part-of: "{{ instance_name }}"
+          spec:
+            containers:
+            - env:
+              - name: TEMPORAL_ADDRESS
+                value: temporal-frontend.temporal.svc:7233
+              image: temporalio/ui:latest
+              imagePullPolicy: IfNotPresent
+              name: temporal-web
+              ports:
+              - containerPort: 8080
+                name: http
+                protocol: TCP
+              resources: {}
+              terminationMessagePath: /dev/termination-log
+              terminationMessagePolicy: File
+            dnsPolicy: ClusterFirst
+            restartPolicy: Always
+            schedulerName: default-scheduler
+            securityContext: {}
+            terminationGracePeriodSeconds: 30
+            volumes:
+            - configMap:
+                defaultMode: 420
+                name: temporal-web-config
+              name: temporal-web-config
+
+# Web service
+- name: Create Web Service
+  k8s:
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        labels:
+              app.kubernetes.io/component: web
+              app.kubernetes.io/name: "{{ instance_name }}"
+              app.kubernetes.io/instance: "{{ instance_name }}"
+              app.kubernetes.io/version: "1.17.5"
+              app.kubernetes.io/part-of: "{{ instance_name }}"
+        name: temporal-web
+        namespace: "{{ ansible_operator_meta.namespace }}"
+      spec:
+        type: ClusterIP
+        ports:
+        - name: http
+          port: 8080
+          protocol: TCP
+          targetPort: http
+        selector:
+          app.kubernetes.io/name: "{{ instance_name }}"
+          app.kubernetes.io/instance: "{{ instance_name }}"
+          app.kubernetes.io/component: web
+      status:
+        loadBalancer: {}

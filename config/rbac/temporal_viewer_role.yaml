@@ -1,0 +1,20 @@
+# permissions for end users to view temporals.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: temporal-viewer-role
+rules:
+- apiGroups:
+  - temporal.io
+  resources:
+  - temporals
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - temporal.io
+  resources:
+  - temporals/status
+  verbs:
+  - get

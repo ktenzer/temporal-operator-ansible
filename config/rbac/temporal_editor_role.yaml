@@ -1,0 +1,24 @@
+# permissions for end users to edit temporals.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: temporal-editor-role
+rules:
+- apiGroups:
+  - temporal.io
+  resources:
+  - temporals
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - temporal.io
+  resources:
+  - temporals/status
+  verbs:
+  - get
