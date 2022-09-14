@@ -3,22 +3,22 @@ kind: Temporal
 metadata:
   name: temporal-sample
 spec:
-  instance_name: temporal-test
-  num_shards: 512
-  plugin_name: mysql
-  driver_name: mysql
-  db_conn_addr: temporaltest-db.ce1n9s2ehuqa.us-east-1.rds.amazonaws.com:3306
-  db_user: admin
-  temporal_db_password: temporal
   admintools:
     enable: true
-  web:
-    enable: true
+  db_conn_addr: temporaltest-db.ce1n9s2ehuqa.us-east-1.rds.amazonaws.com:3306
+  db_user: admin
+  driver_name: mysql
   frontend:
-    enable: true
-  worker:
     enable: true
   history:
     enable: true
+  instance_name: temporal-test
   matching:
+    enable: true
+  num_shards: 512
+  plugin_name: mysql
+  temporal_db_password: temporal
+  web:
+    enable: true
+  worker:
     enable: true

@@ -9,10 +9,12 @@ namespace: temporal-operator-system
 namePrefix: temporal-operator-
 
 # Labels to add to all resources and selectors.
-#commonLabels:
-#  someName: someValue
+#labels:
+#- includeSelectors: true
+#  pairs:
+#    someName: someValue
 
-bases:
+resources:
 - ../crd
 - ../rbac
 - ../manager
