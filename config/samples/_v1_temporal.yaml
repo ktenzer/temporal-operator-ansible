@@ -5,7 +5,8 @@ metadata:
 spec:
   admintools:
     enable: true
-  db_conn_addr: temporaltest-db.ce1n9s2ehuqa.us-east-1.rds.amazonaws.com:3306
+  db_host: temporal-db2.ce1n9s2ehuqa.us-east-1.rds.amazonaws.com
+  db_port: 3306
   db_user: admin
   driver_name: mysql
   frontend:

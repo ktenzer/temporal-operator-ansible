@@ -28,7 +28,7 @@
                   pluginName: "{{ plugin_name }}"
                   driverName: "{{ driver_name }}"
                   databaseName: "temporal"
-                  connectAddr: "{{ db_conn_addr }}"
+                  connectAddr: "{{ db_host }}:{{ db_port }}"
                   connectProtocol: "tcp"
                   user: {{ db_user }}
                   password: "{% raw %}{{ .Env.TEMPORAL_STORE_PASSWORD }}{% endraw %}"
@@ -40,7 +40,7 @@
                   pluginName: "{{ plugin_name }}"
                   driverName: "{{ driver_name }}"
                   databaseName: "temporal_visibility"
-                  connectAddr: "{{ db_conn_addr }}"
+                  connectAddr: "{{ db_host }}:{{ db_port }}"
                   connectProtocol: "tcp"
                   user: "{{ db_user }}"
                   password: "{% raw %}{{ .Env.TEMPORAL_VISIBILITY_STORE_PASSWORD }}{% endraw %}"

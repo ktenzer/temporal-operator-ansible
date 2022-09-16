@@ -1,4 +1,24 @@
 ---
+- name: Select Mysql Database Schema
+  set_fact:
+    database_schema_path: "schema/mysql/v57/temporal/versioned"
+  when: plugin_name == "mysql"
+
+- name: Select Mysql Visibility Schema
+  set_fact:
+    visibility_schema_path: "schema/mysql/v57/visibility/versioned"
+  when: plugin_name == "mysql"
+
+- name: Select PostgreSQL Database Schema
+  set_fact:
+    database_schema_path: "schema/postgresql/v96/temporal/versioned"
+  when: plugin_name == "postgres"
+
+- name: Select PostgreSQL Visibility Schema
+  set_fact:
+    visibility_schema_path: "schema/postgresql/v96/visibility/versioned"
+  when: plugin_name == "postgres"
+
 - name: Create Dynamic ConfigMap
   k8s:
     definition:
@@ -43,33 +63,105 @@
         name: temporal-visibility-store
         namespace: "{{ ansible_operator_meta.namespace }}"
       stringData:
-        password: "{{ temporal_db_password }}"        
+        password: "{{ temporal_db_password }}" 
+
 - name: Deploy Admintools
   include_role:
     name: admintools
   when: admintools.enable
 
+- name: Find Admintools pod
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: "{{ ansible_operator_meta.namespace }}"
+    label_selectors:
+      - app.kubernetes.io/component = admintools
+  register: pod
+
+- name: Admintools Pod Discovered
+  debug:
+    msg: "{{ pod.resources[0].metadata.name }}"
+
+- name: Create Temporal Database
+  kubernetes.core.k8s_exec:
+    namespace: "{{ ansible_operator_meta.namespace }}"
+    pod: "{{ pod.resources[0].metadata.name }}"
+    command: /usr/local/bin/temporal-sql-tool --plugin {{ plugin_name }} --endpoint {{ db_host }} --port {{ db_port }} --user {{ db_user }} --password {{ temporal_db_password }} create-database -database temporal
+  register: database_create
+ # until: database_create.rc == 0
+ # retries: 10
+ # delay: 5
+
+- name: Create Temporal Database Schema
+  kubernetes.core.k8s_exec:
+    namespace: "{{ ansible_operator_meta.namespace }}"
+    pod: "{{ pod.resources[0].metadata.name }}"
+    command: /usr/local/bin/temporal-sql-tool --plugin {{ plugin_name }} --endpoint {{ db_host }} --port {{ db_port }} --user {{ db_user }} --password {{ temporal_db_password }} --database temporal setup-schema -v 0.0 
+  register: database_schema_create
+  until: database_schema_create.rc == 0
+  retries: 10
+  delay: 5
+
+- name: Update Temporal Database Schema
+  kubernetes.core.k8s_exec:
+    namespace: "{{ ansible_operator_meta.namespace }}"
+    pod: "{{ pod.resources[0].metadata.name }}"
+    command: /usr/local/bin/temporal-sql-tool --plugin {{ plugin_name }} --endpoint {{ db_host }} --port {{ db_port }} --user {{ db_user }} --password {{ temporal_db_password }} --database temporal update -schema-dir {{ database_schema_path }}
+  register: database_schema_update
+  until: database_schema_update.rc == 0
+  retries: 10
+  delay: 5
+
+- name: Create Temporal Visibility Database
+  kubernetes.core.k8s_exec:
+    namespace: "{{ ansible_operator_meta.namespace }}"
+    pod: "{{ pod.resources[0].metadata.name }}"
+    command: /usr/local/bin/temporal-sql-tool --plugin {{ plugin_name }} --endpoint {{ db_host }} --port {{ db_port }} --user {{ db_user }} --password {{ temporal_db_password }} create-database -database temporal_visibility
+  register: visibility_create
+  until: visibility_create.rc == 0
+  retries: 10
+  delay: 5
+
+- name: Create Temporal Visibility Database Schema
+  kubernetes.core.k8s_exec:
+    namespace: "{{ ansible_operator_meta.namespace }}"
+    pod: "{{ pod.resources[0].metadata.name }}"
+    command: /usr/local/bin/temporal-sql-tool --plugin {{ plugin_name }} --endpoint {{ db_host }} --port {{ db_port }} --user {{ db_user }} --password {{ temporal_db_password }} --database temporal_visibility setup-schema -v 0.0
+  register: visibility_schema_create
+  until: visibility_schema_create.rc == 0
+  retries: 10
+  delay: 5
+
+- name: Update Temporal Visibility Database Schema
+  kubernetes.core.k8s_exec:
+    namespace: "{{ ansible_operator_meta.namespace }}"
+    pod: "{{ pod.resources[0].metadata.name }}"
+    command: /usr/local/bin/temporal-sql-tool --plugin {{ plugin_name }} --endpoint {{ db_host }} --port {{ db_port }} --user {{ db_user }} --password {{ temporal_db_password }} --database temporal_visibility update -schema-dir {{ visibility_schema_path }}
+  register: visibility_schema_update
+  until: visibility_schema_update.rc == 0
+  retries: 10
+  delay: 5
+
 - name: Deploy Web
   include_role:
     name: web
-  when: web.enable
 
 - name: Deploy Frontend
   include_role:
     name: frontend
-  when: frontend.enable
+  when: frontend.enable and database_schema_update.rc == 0 and visibility_schema_update.rc == 0
 
 - name: Deploy Matching
   include_role:
     name: matching
-  when: matching.enable
+  when: matching.enable and database_schema_update.rc == 0 and visibility_schema_update.rc == 0
 
 - name: Deploy History
   include_role:
     name: history
-  when: history.enable
+  when: history.enable and database_schema_update.rc == 0 and visibility_schema_update.rc == 0
 
 - name: Deploy Worker
   include_role:
     name: worker
-  when: worker.enable    
+  when: worker.enable and database_schema_update.rc == 0 and visibility_schema_update.rc == 0     
