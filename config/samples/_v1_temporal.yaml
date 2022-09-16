@@ -1,14 +1,14 @@
 apiVersion: temporal.io/v1
 kind: Temporal
 metadata:
-  name: temporal-sample
+  name: temporal
 spec:
   admintools:
     enable: true
-  db_host: temporal-db2.ce1n9s2ehuqa.us-east-1.rds.amazonaws.com
-  db_port: 3306
-  db_user: admin
-  driver_name: mysql
+  db_host: temporal-db1.ce1n9s2ehuqa.us-east-1.rds.amazonaws.com
+  db_port: 5432
+  db_user: postgres
+  driver_name: postgres
   frontend:
     enable: true
   history:
@@ -17,7 +17,7 @@ spec:
   matching:
     enable: true
   num_shards: 512
-  plugin_name: mysql
+  plugin_name: postgres
   temporal_db_password: temporal
   web:
     enable: true

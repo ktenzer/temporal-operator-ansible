@@ -1,0 +1,47 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: '[]'
+    capabilities: Basic Install
+  name: temporal-operator.v0.0.0
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions: {}
+  description: Durable workflow execution for applications
+  displayName: Temporal Operator
+  icon:
+  - base64data: ""
+    mediatype: ""
+  install:
+    spec:
+      deployments: null
+    strategy: ""
+  installModes:
+  - supported: false
+    type: OwnNamespace
+  - supported: false
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  keywords:
+  - durable
+  - execution
+  - workflow
+  - sdk
+  - application
+  - distributed
+  links:
+  - name: Temporal Operator
+    url: https://temporal-operator.domain
+  maintainers:
+  - email: keith.tenzer@temporal.io
+    name: ktenzer
+  maturity: alpha
+  provider:
+    name: Temporal
+    url: https://github.com/ktenzer/temporal-operator
+  version: 0.0.0
