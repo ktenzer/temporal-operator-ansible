@@ -1,4 +1,133 @@
 ---
+# Create ConfigMap
+- name: Create Matching ConfigMap w/Advanced Visibility
+  k8s:
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: "temporal-matching-config"
+        namespace: "{{ ansible_operator_meta.namespace }}"
+        labels:
+          app.kubernetes.io/name: "{{ instance_name }}"
+          app.kubernetes.io/instance: "{{ instance_name }}"
+          app.kubernetes.io/version: "1.17.5"
+          app.kubernetes.io/part-of: "{{ instance_name }}"
+      data:
+        config_template.yaml: |
+          log:
+            stdout: true
+            level: "debug,info"
+
+          persistence:
+            defaultStore: default
+            visibilityStore: visibility
+            advancedVisibilityStore: es-visibility
+            numHistoryShards: {{ num_shards }}
+            datastores:
+              default:
+                sql:
+                  pluginName: "{{ plugin_name }}"
+                  driverName: "{{ driver_name }}"
+                  databaseName: "temporal"
+                  connectAddr: "{{ db_host }}:{{ db_port }}"
+                  connectProtocol: "tcp"
+                  user: {{ db_user }}
+                  password: "{% raw %}{{ .Env.TEMPORAL_STORE_PASSWORD }}{% endraw %}"
+                  maxConnLifetime: 1h
+                  maxConns: 20
+                  secretName: ""
+              visibility:
+                sql:
+                  pluginName: "{{ plugin_name }}"
+                  driverName: "{{ driver_name }}"
+                  databaseName: "temporal_visibility"
+                  connectAddr: "{{ db_host }}:{{ db_port }}"
+                  connectProtocol: "tcp"
+                  user: "{{ db_user }}"
+                  password: "{% raw %}{{ .Env.TEMPORAL_VISIBILITY_STORE_PASSWORD }}{% endraw %}"
+                  maxConnLifetime: 1h
+                  maxConns: 20
+                  secretName: ""
+              es-visibility:
+                  elasticsearch:
+                      version: "v7"
+                      url:
+                          scheme: "http"
+                          host: "{{ elastic.host }}:{{ elastic.port }}"
+                      username: "{{ elastic.user }}"
+                      password: "{{ elastic.password }}"
+                      logLevel: "error"
+                      indices:
+                          visibility: "temporal_visibility_v1_dev"
+          global:
+            membership:
+              name: temporal
+              maxJoinDuration: 30s
+              broadcastAddress: {% raw %}{{ default .Env.POD_IP "0.0.0.0" }}{% endraw %}
+
+            pprof:
+              port: 7936
+              
+            metrics:
+              tags:
+                type: matching
+              prometheus:
+                timerType: histogram
+                listenAddress: "0.0.0.0:{{ prometheus_port }}"
+
+          services:
+            frontend:
+              rpc:
+                grpcPort: 7233
+                membershipPort: 6933
+                bindOnIP: "0.0.0.0"
+
+            history:
+              rpc:
+                grpcPort: 7234
+                membershipPort: 6934
+                bindOnIP: "0.0.0.0"
+
+            matching:
+              rpc:
+                grpcPort: 7235
+                membershipPort: 6935
+                bindOnIP: "0.0.0.0"
+
+            worker:
+              rpc:
+                grpcPort: 7239
+                membershipPort: 6939
+                bindOnIP: "0.0.0.0"
+
+          clusterMetadata:
+            enableGlobalDomain: false
+            failoverVersionIncrement: 10
+            masterClusterName: "active"
+            currentClusterName: "active"
+            clusterInformation:
+              active:
+                enabled: true
+                initialFailoverVersion: 1
+                rpcName: "temporal-frontend"
+                rpcAddress: "127.0.0.1:7933"
+
+          dcRedirectionPolicy:
+            policy: "noop"
+            toDC: ""
+
+          archival:
+            status: "disabled"
+
+          publicClient:
+            hostPort: "temporal-frontend:7233"
+
+          dynamicConfigClient:
+            filepath: "/etc/temporal/dynamic_config/dynamic_config.yaml"
+            pollInterval: "10s"
+  when: elastic.enable
+
 - name: Create Matching ConfigMap
   k8s:
     definition:
@@ -62,8 +191,7 @@
                 type: matching
               prometheus:
                 timerType: histogram
-                listenAddress: "0.0.0.0:9090"
-
+                listenAddress: "0.0.0.0:{{ prometheus_port }}"
 
           services:
             frontend:
@@ -115,6 +243,7 @@
           dynamicConfigClient:
             filepath: "/etc/temporal/dynamic_config/dynamic_config.yaml"
             pollInterval: "10s"
+  when: not elastic.enable
 
 # Deployment
 - name: Create Matching Deployment

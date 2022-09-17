@@ -1,7 +1,7 @@
 ---
 - name: Print Database Configuration
   debug:
-    msg: "Plugin [{{ plugin_name }}] Driver [{{ driver_name }} DB Host [{{ db_host }}] DB Port []{{ db_port }}]"
+    msg: "Plugin[{{ plugin_name }}] Driver[{{ driver_name }} DB Host[{{ db_host }}] DB Port[{{ db_port }}]"
 
 - name: Select Mysql Database Schema
   set_fact:
@@ -69,10 +69,10 @@
       stringData:
         password: "{{ temporal_db_password }}" 
 
+# Deploy Admintools
 - name: Deploy Admintools
   include_role:
     name: admintools
-  when: admintools.enable
 
 - name: Find Admintools pod
   kubernetes.core.k8s_info:
