@@ -1,5 +1,6 @@
 # Temporal Operator
 ![Temporal](image/temporal-logo.png)
+
 Deploys an instance of Temporal in a given namespace. This operator should at this point be considered alpha. The goal of this operator it to only deploy required Temporal services. Dependencies like database, elasticsearch, prometheus and grafana should all be deployed separately. The operator customresource spec allows for connecting Temporal to the mentioned shared dependencies. Temporal supports native MySQL, PostgreSQL and Cassandra.
 
 ## Quick Start
