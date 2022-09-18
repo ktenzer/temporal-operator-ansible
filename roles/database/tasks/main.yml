@@ -1,0 +1,88 @@
+---
+# tasks file for Database
+- name: Deploy MySQL Secret
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: temporal-mysql-store
+        namespace: "{{ ansible_operator_meta.namespace }}"
+      stringData:
+        password: "{{ db_password }}" 
+
+# MySQL service
+- name: Create MySQL Service
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        labels:
+              app.kubernetes.io/component: mysql
+              app.kubernetes.io/name: "{{ instance_name }}"
+              app.kubernetes.io/instance: "{{ instance_name }}"
+              app.kubernetes.io/version: "1.17.6"
+              app.kubernetes.io/part-of: "{{ instance_name }}"
+        name: temporal-mysql
+        namespace: "{{ ansible_operator_meta.namespace }}"
+      spec:
+        type: ClusterIP
+        ports:
+        - name: tcp
+          port: 3306
+          protocol: TCP
+        selector:
+          app.kubernetes.io/name: "{{ instance_name }}"
+          app.kubernetes.io/instance: "{{ instance_name }}"
+          app.kubernetes.io/component: mysql
+      status:
+        loadBalancer: {}
+
+# Deployment
+- name: Create MySQL SatefulSet
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: apps/v1
+      kind: StatefulSet
+      metadata:
+        labels:
+          app.kubernetes.io/component: mysql
+          app.kubernetes.io/name: "{{ instance_name }}"
+          app.kubernetes.io/instance: "{{ instance_name }}"
+          app.kubernetes.io/version: "1.17.6"
+          app.kubernetes.io/part-of: "{{ instance_name }}"
+        name: temporal-mysql
+        namespace: "{{ ansible_operator_meta.namespace }}"
+      spec:
+        replicas: 1
+        serviceName: temporal-mysql
+        selector:
+          matchLabels:
+            app.kubernetes.io/name: "{{ instance_name }}"
+            app.kubernetes.io/instance: "{{ instance_name }}"
+            app.kubernetes.io/component: mysql
+        template:
+          metadata:
+            labels:
+              app.kubernetes.io/name: "{{ instance_name }}"
+              app.kubernetes.io/instance: "{{ instance_name }}"
+              app.kubernetes.io/component: mysql
+          spec:
+            terminationGracePeriodSeconds: 10
+            containers:
+              - name: mysql
+                image: docker.io/mysql:5.7.39
+                ports:
+                  - name: tpc
+                    protocol: TCP
+                    containerPort: 3306
+                env:
+                  - name: MYSQL_ROOT_PASSWORD
+                    valueFrom: 
+                      secretKeyRef: 
+                        key: password
+                        name: temporal-mysql-store
+            volumes:
+            - emptyDir: {}
+              name: data        
