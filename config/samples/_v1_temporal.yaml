@@ -3,28 +3,30 @@ kind: Temporal
 metadata:
   name: temporal
 spec:
-  instance_name: temporal-test
+  instance_name: temporal
   num_shards: 512
-  db_host: temporal-db1.ce1n9s2ehuqa.us-east-1.rds.amazonaws.com
-  db_port: 5432
-  db_user: postgres
-  driver_name: postgres
-  plugin_name: postgres
-  temporal_db_password: temporal
   prometheus_port: 9090
+  db_password: mypassword
+  external_db:
+    enable: false
+    db_host: mydatabase.mydomain.com
+    db_port: 5432
+    db_user: postgres
+    driver_name: postgres
+    plugin_name: postgres
+  web:
+    enable: true
   frontend:
     enable: true
   history:
     enable: true
   matching:
     enable: true
-  web:
-    enable: true
   worker:
     enable: true
   elastic:
     enable: false
-    host:
-    port:
-    user:
-    password:
+    host: myelastic.mydomain.com
+    port: 9200
+    user: admin
+    password: mypassword

@@ -1,6 +1,6 @@
 ---
 - name: Create Web ConfigMap
-  k8s:
+  kubernetes.core.k8s:
     definition:
       apiVersion: v1
       kind: ConfigMap
@@ -10,7 +10,7 @@
         labels:
           app.kubernetes.io/name: "{{ instance_name }}"
           app.kubernetes.io/instance: "{{ instance_name }}"
-          app.kubernetes.io/version: "1.17.5"
+          app.kubernetes.io/version: "1.17.6"
           app.kubernetes.io/part-of: "{{ instance_name }}"
       data:
         config.yml: |
@@ -22,7 +22,7 @@
 
 # Deployment
 - name: Create Web ConfigMap
-  k8s:
+  kubernetes.core.k8s:
     definition:
       apiVersion: apps/v1
       kind: Deployment
@@ -31,7 +31,7 @@
           app.kubernetes.io/component: web
           app.kubernetes.io/name: "{{ instance_name }}"
           app.kubernetes.io/instance: "{{ instance_name }}"
-          app.kubernetes.io/version: "1.17.5"
+          app.kubernetes.io/version: "1.17.6"
           app.kubernetes.io/part-of: "{{ instance_name }}"
         name: temporal-web
         namespace: "{{ ansible_operator_meta.namespace }}"
@@ -56,14 +56,14 @@
               app.kubernetes.io/component: web
               app.kubernetes.io/name: "{{ instance_name }}"
               app.kubernetes.io/instance: "{{ instance_name }}"
-              app.kubernetes.io/version: "1.17.5"
+              app.kubernetes.io/version: "1.17.6"
               app.kubernetes.io/part-of: "{{ instance_name }}"
           spec:
             containers:
             - env:
               - name: TEMPORAL_ADDRESS
                 value: temporal-frontend.temporal.svc:7233
-              image: temporalio/ui:latest
+              image: docker.io/temporalio/ui:latest
               imagePullPolicy: IfNotPresent
               name: temporal-web
               ports:
@@ -86,7 +86,7 @@
 
 # Web service
 - name: Create Web Service
-  k8s:
+  kubernetes.core.k8s:
     definition:
       apiVersion: v1
       kind: Service
@@ -95,7 +95,7 @@
               app.kubernetes.io/component: web
               app.kubernetes.io/name: "{{ instance_name }}"
               app.kubernetes.io/instance: "{{ instance_name }}"
-              app.kubernetes.io/version: "1.17.5"
+              app.kubernetes.io/version: "1.17.6"
               app.kubernetes.io/part-of: "{{ instance_name }}"
         name: temporal-web
         namespace: "{{ ansible_operator_meta.namespace }}"

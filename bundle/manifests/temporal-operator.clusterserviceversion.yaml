@@ -11,36 +11,58 @@ metadata:
             "name": "temporal-sample"
           },
           "spec": {
+           "instance_name": "temporal",
+           "num_shards": 512,
+           "prometheus_port": 9090,
+           "db_password": "mypassword",
+
+            "external_db": {     
+              "enable": true,
+              "db_host": "mydb.mydomain.com",
+              "db_port": 5432,
+              "db_user": "postgres",
+              "plugin_name": "postgres",
+              "driver_name": "postgres"
+            }, 
+
             "admintools": {
               "enable": true
             },
-            "db_host": "temporal-db1.c4g7ss2ehuqa.us-east-1.rds.amazonaws.com",
-            "db_port": 5432,
-            "db_user": "postgres",
-            "driver_name": "postgres",
-            "frontend": {
-              "enable": true
-            },
-            "history": {
-              "enable": true
-            },
-            "instance_name": "temporal-test",
-            "matching": {
-              "enable": true
-            },
-            "num_shards": 512,
-            "plugin_name": "postgres",
-            "temporal_db_password": "temporal",
+
             "web": {
               "enable": true
             },
+
+            "frontend": {
+              "enable": true
+            },
+            
+            "history": {
+              "enable": true
+            },
+
+            "matching": {
+              "enable": true
+            },
+
             "worker": {
               "enable": true
+            },
+
+            "elastic": {     
+              "enable": true,
+              "host": "myelastic.mydomain.com",
+              "port": 8585,
+              "user": "myuser",
+              "password": "mypassword"
             }
           }
         }
       ]
+   
+    containerImage: docker.io/ktenzer/temporal-operator:v0.1.0
     capabilities: Basic Install
+    categories: "Application Runtime, Developer Tools, AI/Machine Learning"    
     operators.operatorframework.io/builder: operator-sdk-v1.23.0
     operators.operatorframework.io/project_layout: ansible.sdk.operatorframework.io/v1
   name: temporal-operator.v0.1.0
@@ -60,13 +82,18 @@ spec:
     mediatype: "image/png"
   description: |
     ## Temporal
-    Temporal is a durable workflow execution environment for applications. The Temporal operator will deploy all required Temporal server services and dependencies except the database. You are expected to have deployed a MySQL, PostgreSQL or Cassandra database and provided connectivity from pods in your k8s cluster.
-
+    Temporal is a durable workflow execution environment for applications. The Temporal operator will deploy all required Temporal server services and dependencies. By default it will deploy an ephemeral MySQL database but that is just for testing. You will want to setup an external database for non-testing use. Temporal supports native MySQL, PostgreSQL or Cassandra databases.
+    
+    ## Version
+    Temporal 1.17.6
+    
     ## Quick Setup
-    Follow these steps to deploy a Temporal server instance in a given namespace.
+    Follow these steps to deploy a Temporal server instance with an ephemeral MySQL database in a namespace called temporal.
 
     ### Create Temporal namespace
-    ```$ kubectl create ns temporal```
+    <pre>
+    $ kubectl create ns temporal
+    </pre>
     <pre>
     $ vi temporal.yaml
     apiVersion: temporal.io/v1
@@ -74,28 +101,37 @@ spec:
     metadata:
       name: temporal
     spec:
-      admintools:
+      instance_name: temporal
+      num_shards: 512
+      prometheus_port: 9090
+      db_password: temporal
+      external_db:
+        enable: false
+        db_host: 
+        db_port: 
+        db_user: 
+        driver_name: 
+        plugin_name: 
+      web:
         enable: true
-      db_host: temporal-db1.c4g7ss2ehuqa.us-east-1.rds.amazonaws.com
-      db_port: 5432
-      db_user: postgres
-      driver_name: postgres
       frontend:
         enable: true
       history:
         enable: true
-      instance_name: temporal-test
       matching:
-        enable: true
-      num_shards: 512
-      plugin_name: postgres
-      temporal_db_password: temporal
-      web:
         enable: true
       worker:
         enable: true
+      elastic:
+        enable: false
+        host: 
+        port: 
+        user: 
+        password: 
     </pre>
-    ```$ oc create -f fossul.yaml```  
+    <pre>
+    $ kubectl create -f temporal.yaml -n temporal
+    </pre>
   install:
     spec:
       clusterPermissions:
@@ -180,7 +216,7 @@ spec:
                 serviceAccountName: temporal-operator
                 containers:
                   - name: temporal-operator
-                    image: ktenzer/temporal-operator:v0.1.0
+                    image: docker.io/ktenzer/temporal-operator:v0.1.0
                     imagePullPolicy: Always
                     env:
                       - name: WATCH_NAMESPACE
@@ -191,6 +227,13 @@ spec:
                             fieldPath: metadata.name
                       - name: OPERATOR_NAME
                         value: temporal-operator
+                    resources:
+                      limits:
+                        cpu: 500m
+                        memory: 500Mi
+                      requests:
+                        cpu: 300m
+                        memory: 300Mi
       permissions:
       - rules:
         - apiGroups:
@@ -303,4 +346,5 @@ spec:
   provider:
     name: Temporal
     url: https://temporal.io/
+  minKubeVersion: 1.19.0
   version: 0.1.0

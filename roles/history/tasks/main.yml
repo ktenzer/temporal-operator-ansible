@@ -1,7 +1,7 @@
 ---
 # Create ConfigMap
 - name: Create History ConfigMap w/Advanced Visibility
-  k8s:
+  kubernetes.core.k8s:
     definition:
       apiVersion: v1
       kind: ConfigMap
@@ -11,7 +11,7 @@
         labels:
           app.kubernetes.io/name: "{{ instance_name }}"
           app.kubernetes.io/instance: "{{ instance_name }}"
-          app.kubernetes.io/version: "1.17.5"
+          app.kubernetes.io/version: "1.17.6"
           app.kubernetes.io/part-of: "{{ instance_name }}"
       data:
         config_template.yaml: |
@@ -27,24 +27,24 @@
             datastores:
               default:
                 sql:
-                  pluginName: "{{ plugin_name }}"
-                  driverName: "{{ driver_name }}"
+                  pluginName: "{{ db.plugin_name }}"
+                  driverName: "{{ db.driver_name }}"
                   databaseName: "temporal"
-                  connectAddr: "{{ db_host }}:{{ db_port }}"
+                  connectAddr: "{{ db.db_host }}:{{ db.db_port }}"
                   connectProtocol: "tcp"
-                  user: {{ db_user }}
+                  user: {{ db.db_user }}
                   password: "{% raw %}{{ .Env.TEMPORAL_STORE_PASSWORD }}{% endraw %}"
                   maxConnLifetime: 1h
                   maxConns: 20
                   secretName: ""
               visibility:
                 sql:
-                  pluginName: "{{ plugin_name }}"
-                  driverName: "{{ driver_name }}"
+                  pluginName: "{{ db.plugin_name }}"
+                  driverName: "{{ db.driver_name }}"
                   databaseName: "temporal_visibility"
-                  connectAddr: "{{ db_host }}:{{ db_port }}"
+                  connectAddr: "{{ db.db_host }}:{{ db.db_port }}"
                   connectProtocol: "tcp"
-                  user: "{{ db_user }}"
+                  user: "{{ db.db_user }}"
                   password: "{% raw %}{{ .Env.TEMPORAL_VISIBILITY_STORE_PASSWORD }}{% endraw %}"
                   maxConnLifetime: 1h
                   maxConns: 20
@@ -130,7 +130,7 @@
   when: elastic.enable
 
 - name: Create History ConfigMap
-  k8s:
+  kubernetes.core.k8s:
     definition:
       apiVersion: v1
       kind: ConfigMap
@@ -140,7 +140,7 @@
         labels:
           app.kubernetes.io/name: "{{ instance_name }}"
           app.kubernetes.io/instance: "{{ instance_name }}"
-          app.kubernetes.io/version: "1.17.5"
+          app.kubernetes.io/version: "1.17.6"
           app.kubernetes.io/part-of: "{{ instance_name }}"
       data:
         config_template.yaml: |
@@ -155,24 +155,24 @@
             datastores:
               default:
                 sql:
-                  pluginName: "{{ plugin_name }}"
-                  driverName: "{{ driver_name }}"
+                  pluginName: "{{ db.plugin_name }}"
+                  driverName: "{{ db.driver_name }}"
                   databaseName: "temporal"
-                  connectAddr: "{{ db_host }}:{{ db_port }}"
+                  connectAddr: "{{ db.db_host }}:{{ db.db_port }}"
                   connectProtocol: "tcp"
-                  user: {{ db_user }}
+                  user: {{ db.db_user }}
                   password: "{% raw %}{{ .Env.TEMPORAL_STORE_PASSWORD }}{% endraw %}"
                   maxConnLifetime: 1h
                   maxConns: 20
                   secretName: ""
               visibility:
                 sql:
-                  pluginName: "{{ plugin_name }}"
-                  driverName: "{{ driver_name }}"
+                  pluginName: "{{ db.plugin_name }}"
+                  driverName: "{{ db.driver_name }}"
                   databaseName: "temporal_visibility"
-                  connectAddr: "{{ db_host }}:{{ db_port }}"
+                  connectAddr: "{{ db.db_host }}:{{ db.db_port }}"
                   connectProtocol: "tcp"
-                  user: "{{ db_user }}"
+                  user: "{{ db.db_user }}"
                   password: "{% raw %}{{ .Env.TEMPORAL_VISIBILITY_STORE_PASSWORD }}{% endraw %}"
                   maxConnLifetime: 1h
                   maxConns: 20
@@ -249,7 +249,7 @@
 
 # Deployment
 - name: Create History ConfigMap
-  k8s:
+  kubernetes.core.k8s:
     definition:
       apiVersion: apps/v1
       kind: Deployment
@@ -258,7 +258,7 @@
           app.kubernetes.io/component: history
           app.kubernetes.io/name: "{{ instance_name }}"
           app.kubernetes.io/instance: "{{ instance_name }}"
-          app.kubernetes.io/version: "1.17.5"
+          app.kubernetes.io/version: "1.17.6"
           app.kubernetes.io/part-of: "{{ instance_name }}"
         name: temporal-history
         namespace: "{{ ansible_operator_meta.namespace }}"
@@ -288,7 +288,7 @@
               app.kubernetes.io/component: history
               app.kubernetes.io/name: "{{ instance_name }}"
               app.kubernetes.io/instance: "{{ instance_name }}"
-              app.kubernetes.io/version: "1.17.5"
+              app.kubernetes.io/version: "1.17.6"
               app.kubernetes.io/part-of: "{{ instance_name }}"
           spec:
             containers:
@@ -323,7 +323,7 @@
                   secretKeyRef:
                     key: password
                     name: temporal-visibility-store
-              image: temporalio/server:1.17.5
+              image: docker.io/temporalio/server:1.17.6
               imagePullPolicy: IfNotPresent
               livenessProbe:
                 failureThreshold: 3
@@ -370,7 +370,7 @@
 
 # History service
 - name: Create History Service
-  k8s:
+  kubernetes.core.k8s:
     definition:
       apiVersion: v1
       kind: Service
@@ -379,7 +379,7 @@
               app.kubernetes.io/component: history
               app.kubernetes.io/name: "{{ instance_name }}"
               app.kubernetes.io/instance: "{{ instance_name }}"
-              app.kubernetes.io/version: "1.17.5"
+              app.kubernetes.io/version: "1.17.6"
               app.kubernetes.io/part-of: "{{ instance_name }}"
         name: temporal-history-headless
         namespace: "{{ ansible_operator_meta.namespace }}"

@@ -1,30 +1,57 @@
 ---
-- name: Print Database Configuration
+# Set Temporal Version
+- name: Set Temporal Server Version
+  set_fact:
+    version: "1.17.6"
+  when: version is not defined
+  
+# Set Database params
+- name: Set External Database Parameters
+  set_fact:
+    db:
+      plugin_name: "{{ external_db.plugin_name }}"
+      driver_name: "{{ external_db.driver_name  }}"
+      db_host: "{{ external_db.db_host }}"
+      db_port: "{{ external_db.db_port }}"
+      db_user: "{{ external_db.db_user }}"
+  when: external_db.enable
+
+- name: Set Internal Database Parameters
+  set_fact:
+    db:
+      plugin_name: "mysql"
+      driver_name: "mysql"
+      db_host: "temporal-mysql"
+      db_port: "3306"
+      db_user: "root"
+  when: not external_db.enable
+
+- name: Print Configuration
   debug:
-    msg: "Plugin[{{ plugin_name }}] Driver[{{ driver_name }} DB Host[{{ db_host }}] DB Port[{{ db_port }}]"
+    msg: "Temporal Version:[1.17.6] Plugin:[{{ db.plugin_name }}] Driver:[{{ db.driver_name }} DB Host:[{{ db.db_host }}] DB Port:[{{ db.db_port }}]"
 
 - name: Select Mysql Database Schema
   set_fact:
     database_schema_path: "schema/mysql/v57/temporal/versioned"
-  when: plugin_name == "mysql"
+  when: db.plugin_name == "mysql"
 
 - name: Select Mysql Visibility Schema
   set_fact:
     visibility_schema_path: "schema/mysql/v57/visibility/versioned"
-  when: plugin_name == "mysql"
+  when: db.plugin_name == "mysql"
 
 - name: Select PostgreSQL Database Schema
   set_fact:
     database_schema_path: "schema/postgresql/v96/temporal/versioned"
-  when: plugin_name == "postgres"
+  when: db.plugin_name == "postgres"
 
 - name: Select PostgreSQL Visibility Schema
   set_fact:
     visibility_schema_path: "schema/postgresql/v96/visibility/versioned"
-  when: plugin_name == "postgres"
+  when: db.plugin_name == "postgres"
 
 - name: Create Dynamic ConfigMap
-  k8s:
+  kubernetes.core.k8s:
     definition:
       apiVersion: v1
       kind: ConfigMap
@@ -34,12 +61,13 @@
         labels:
           app.kubernetes.io/name: "{{ instance_name }}"
           app.kubernetes.io/instance: "{{ instance_name }}"
-          app.kubernetes.io/version: "1.17.5"
+          app.kubernetes.io/version: "1.17.6"
           app.kubernetes.io/part-of: "{{ instance_name }}"
       data:
         dynamic_config.yaml: |
+
 - name: Deploy Temporal DB Secret
-  k8s:
+  kubernetes.core.k8s:
     definition:
       apiVersion: v1
       kind: Secret
@@ -47,9 +75,10 @@
         name: temporal-db-password
         namespace: "{{ ansible_operator_meta.namespace }}"
       stringData:
-        password: "{{ temporal_db_password }}"
+        password: "{{ db_password }}"
+
 - name: Deploy Temporal Default Secret
-  k8s:
+  kubernetes.core.k8s:
     definition:
       apiVersion: v1
       kind: Secret
@@ -57,9 +86,10 @@
         name: temporal-default-store
         namespace: "{{ ansible_operator_meta.namespace }}"
       stringData:
-        password: "{{ temporal_db_password }}"
+        password: "{{ db_password }}"
+
 - name: Deploy Temporal Visibility Secret
-  k8s:
+  kubernetes.core.k8s:
     definition:
       apiVersion: v1
       kind: Secret
@@ -67,7 +97,13 @@
         name: temporal-visibility-store
         namespace: "{{ ansible_operator_meta.namespace }}"
       stringData:
-        password: "{{ temporal_db_password }}" 
+        password: "{{ db_password }}" 
+
+# Deploy MySQL Database
+- name: Deploy MySQL
+  include_role:
+    name: database
+  when: not external_db.enable
 
 # Deploy Admintools
 - name: Deploy Admintools
@@ -91,44 +127,45 @@
   kubernetes.core.k8s_exec:
     namespace: "{{ ansible_operator_meta.namespace }}"
     pod: "{{ pod.resources[0].metadata.name }}"
-    command: /usr/local/bin/temporal-sql-tool --plugin {{ plugin_name }} --endpoint {{ db_host }} --port {{ db_port }} --user {{ db_user }} --password {{ temporal_db_password }} create-database -database temporal
+    command: /usr/local/bin/temporal-sql-tool --plugin {{ db.plugin_name }} --endpoint {{ db.db_host }} --port {{ db.db_port }} --user {{ db.db_user }} --password {{ db_password }} create-database -database temporal
 
 - name: Create Temporal Database Schema
   kubernetes.core.k8s_exec:
     namespace: "{{ ansible_operator_meta.namespace }}"
     pod: "{{ pod.resources[0].metadata.name }}"
-    command: /usr/local/bin/temporal-sql-tool --plugin {{ plugin_name }} --endpoint {{ db_host }} --port {{ db_port }} --user {{ db_user }} --password {{ temporal_db_password }} --database temporal setup-schema -v 0.0 
+    command: /usr/local/bin/temporal-sql-tool --plugin {{ db.plugin_name }} --endpoint {{ db.db_host }} --port {{ db.db_port }} --user {{ db.db_user }} --password {{ db_password }} --database temporal setup-schema -v 0.0 
 
 - name: Update Temporal Database Schema
   kubernetes.core.k8s_exec:
     namespace: "{{ ansible_operator_meta.namespace }}"
     pod: "{{ pod.resources[0].metadata.name }}"
-    command: /usr/local/bin/temporal-sql-tool --plugin {{ plugin_name }} --endpoint {{ db_host }} --port {{ db_port }} --user {{ db_user }} --password {{ temporal_db_password }} --database temporal update -schema-dir {{ database_schema_path }}
+    command: /usr/local/bin/temporal-sql-tool --plugin {{ db.plugin_name }} --endpoint {{ db.db_host }} --port {{ db.db_port }} --user {{ db.db_user }} --password {{ db_password }} --database temporal update -schema-dir {{ database_schema_path }}
   register: database_schema_update
 
 - name: Create Temporal Visibility Database
   kubernetes.core.k8s_exec:
     namespace: "{{ ansible_operator_meta.namespace }}"
     pod: "{{ pod.resources[0].metadata.name }}"
-    command: /usr/local/bin/temporal-sql-tool --plugin {{ plugin_name }} --endpoint {{ db_host }} --port {{ db_port }} --user {{ db_user }} --password {{ temporal_db_password }} create-database -database temporal_visibility
+    command: /usr/local/bin/temporal-sql-tool --plugin {{ db.plugin_name }} --endpoint {{ db.db_host }} --port {{ db.db_port }} --user {{ db.db_user }} --password {{ db_password }} create-database -database temporal_visibility
 
 - name: Create Temporal Visibility Database Schema
   kubernetes.core.k8s_exec:
     namespace: "{{ ansible_operator_meta.namespace }}"
     pod: "{{ pod.resources[0].metadata.name }}"
-    command: /usr/local/bin/temporal-sql-tool --plugin {{ plugin_name }} --endpoint {{ db_host }} --port {{ db_port }} --user {{ db_user }} --password {{ temporal_db_password }} --database temporal_visibility setup-schema -v 0.0
+    command: /usr/local/bin/temporal-sql-tool --plugin {{ db.plugin_name }} --endpoint {{ db.db_host }} --port {{ db.db_port }} --user {{ db.db_user }} --password {{ db_password }} --database temporal_visibility setup-schema -v 0.0
 
 - name: Update Temporal Visibility Database Schema
   kubernetes.core.k8s_exec:
     namespace: "{{ ansible_operator_meta.namespace }}"
     pod: "{{ pod.resources[0].metadata.name }}"
-    command: /usr/local/bin/temporal-sql-tool --plugin {{ plugin_name }} --endpoint {{ db_host }} --port {{ db_port }} --user {{ db_user }} --password {{ temporal_db_password }} --database temporal_visibility update -schema-dir {{ visibility_schema_path }}
+    command: /usr/local/bin/temporal-sql-tool --plugin {{ db.plugin_name }} --endpoint {{ db.db_host }} --port {{ db.db_port }} --user {{ db.db_user }} --password {{ db_password }} --database temporal_visibility update -schema-dir {{ visibility_schema_path }}
   register: visibility_schema_update
 
 # Deploy Temporal Services
 - name: Deploy Web
   include_role:
     name: web
+  when: web.enable
 
 - name: Deploy Frontend
   include_role:

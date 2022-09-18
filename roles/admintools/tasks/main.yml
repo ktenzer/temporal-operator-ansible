@@ -12,7 +12,7 @@
           app.kubernetes.io/component: admintools
           app.kubernetes.io/name: "{{ instance_name }}"
           app.kubernetes.io/instance: "{{ instance_name }}"
-          app.kubernetes.io/version: "1.17.5"
+          app.kubernetes.io/version: "1.17.6"
           app.kubernetes.io/part-of: "{{ instance_name }}"
       spec:
         progressDeadlineSeconds: 600
@@ -35,14 +35,14 @@
               app.kubernetes.io/component: admintools
               app.kubernetes.io/name: "{{ instance_name }}"
               app.kubernetes.io/instance: "{{ instance_name }}"
-              app.kubernetes.io/version: "1.17.5"
+              app.kubernetes.io/version: "1.17.6"
               app.kubernetes.io/part-of: "{{ instance_name }}"
           spec:
             containers:
             - env:
               - name: TEMPORAL_CLI_ADDRESS
                 value: temporal-frontend:7233
-              image: temporalio/admin-tools:1.17.5
+              image: docker.io/temporalio/admin-tools:1.17.6
               imagePullPolicy: IfNotPresent
               livenessProbe:
                 exec:
@@ -79,7 +79,7 @@
               app.kubernetes.io/component: admintools
               app.kubernetes.io/name: "{{ instance_name }}"
               app.kubernetes.io/instance: "{{ instance_name }}"
-              app.kubernetes.io/version: "1.17.5"
+              app.kubernetes.io/version: "1.17.6"
               app.kubernetes.io/part-of: "{{ instance_name }}"
         name: temporal-admintools
         namespace: "{{ ansible_operator_meta.namespace }}"
